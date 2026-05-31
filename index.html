@@ -153,7 +153,24 @@
         .toggle-track::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background-color: white; border-radius: 50%; transition: transform 0.3s; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
         .toggle-input:checked + .toggle-track { background-color: #ef4444; }
         .toggle-input:checked + .toggle-track::after { transform: translateX(16px); }
+    
+    /* 🆕 视图切换按钮样式 */
+        .view-toggle { display: flex; background: #f1f5f9; border-radius: 4px; overflow: hidden; font-size: 11px; cursor: pointer; border: 1px solid #e2e8f0; margin-left: auto; }
+        .view-toggle .toggle-btn { padding: 4px 8px; color: #64748b; font-weight: 500; transition: all 0.2s; }
+        .view-toggle .toggle-btn.active { background: #3b82f6; color: white; }
+        
+        /* 容器样式 */
+        .chart-box { position: relative; width: 100%; height: 240px; }
+        .chart-container.hidden { display: none; }
+        .map-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; margin-top: 10px; background: transparent; }
+        .map-container.active { display: block; }
+        .echarts-view { width: 100%; height: 100%; }
+    
     </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@4.9.0/map/js/world.js"></script>
+
 </head>
 <body>
 
@@ -217,6 +234,16 @@
                     <option value="越南 胡志明市">越南 胡志明市</option>
                     <option value="越南 河内">越南 河内</option>
                     <option value="印尼 雅加达">印尼 雅加达</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <span class="filter-label">系统端</span>
+                <select class="filter-select" id="filter-system" onchange="applyAllFilters()">
+                    <option value="PC">PC</option>
+                    <option value="H5">H5</option>
+                    <option value="SDK">SDK</option>
+                    <option value="对外API">对外API</option>
                 </select>
             </div>
 
@@ -331,60 +358,111 @@
 
                 <div class="dashboard-grid">
                     <div class="card col-6">
-                        <div class="card-header">
-                            <div class="card-title">API响应时间</div>
-                            <select class="filter-select metric-select" style="padding: 2px 6px; font-size: 11px;"><option>平均值</option><option>P50 中位数</option><option>P90 分位</option><option>P95 分位</option><option>P99 极值</option></select>
+                        <div class="card-header" style="display:flex; align-items:center;">
+                            <div class="card-title" style="margin-right: 10px;">API响应时间</div>
+                            <select class="filter-select metric-select" style="padding: 2px 6px; font-size: 11px;" onchange="applyMetricSelect(this)">
+                                <option value="avg">平均值</option>
+                                <option value="p50">P50 中位数</option>
+                                <option value="p90">P90 分位</option>
+                                <option value="p95">P95 分位</option>
+                                <option value="p99">P99 极值</option>
+                            </select>
+                            <div class="view-toggle">
+                                <div class="toggle-btn active" onclick="toggleChartView(this, 'bar')">柱状图</div>
+                                <div class="toggle-btn" onclick="toggleChartView(this, 'map')">地图模式</div>
+                            </div>
                         </div>
-                        <div class="chart-container">
-                            <div class="bar-wrapper" data-region-bar="中国 上海"><div class="bar bar-alt" style="height: 0%;" data-base-height="100" data-base-val="2000"><span class="bar-value" style="opacity:0;">2000</span></div><span class="bar-label">上海</span></div>
-                            <div class="bar-wrapper" data-region-bar="中国 北京"><div class="bar bar-alt" style="height: 0%;" data-base-height="60" data-base-val="1200"><span class="bar-value" style="opacity:0;">1200</span></div><span class="bar-label">北京</span></div>
-                            <div class="bar-wrapper" data-region-bar="中国 四川"><div class="bar bar-alt" style="height: 0%;" data-base-height="50" data-base-val="1000"><span class="bar-value" style="opacity:0;">1000</span></div><span class="bar-label">四川</span></div>
-                            <div class="bar-wrapper" data-region-bar="中国 江苏"><div class="bar bar-alt" style="height: 0%;" data-base-height="100" data-base-val="2000"><span class="bar-value" style="opacity:0;">2000</span></div><span class="bar-label">江苏</span></div>
-                            <div class="bar-wrapper" data-region-bar="泰国 曼谷"><div class="bar bar-alt" style="height: 0%;" data-base-height="50" data-base-val="1000"><span class="bar-value" style="opacity:0;">1000</span></div><span class="bar-label">曼谷</span></div>
-                            <div class="bar-wrapper" data-region-bar="越南 胡志明市"><div class="bar bar-alt" style="height: 0%;" data-base-height="100" data-base-val="2800"><span class="bar-value" style="opacity:0;">2800</span></div><span class="bar-label">胡志明</span></div>
-                            <div class="bar-wrapper" data-region-bar="越南 河内"><div class="bar bar-alt" style="height: 0%;" data-base-height="55" data-base-val="1100"><span class="bar-value" style="opacity:0;">1100</span></div><span class="bar-label">河内</span></div>
-                            <div class="bar-wrapper" data-region-bar="印尼 雅加达"><div class="bar bar-alt" style="height: 0%;" data-base-height="95" data-base-val="1900"><span class="bar-value" style="opacity:0;">1900</span></div><span class="bar-label">雅加达</span></div>
+                        <div class="chart-box">
+                            <div class="chart-container">
+                                <div class="bar-wrapper" data-region-bar="中国 上海"><div class="bar bar-alt" style="height: 0%;" data-base-height="100" data-base-val="2000"><span class="bar-value" style="opacity:0;">2000</span></div><span class="bar-label">上海</span></div>
+                                <div class="bar-wrapper" data-region-bar="中国 北京"><div class="bar bar-alt" style="height: 0%;" data-base-height="60" data-base-val="1200"><span class="bar-value" style="opacity:0;">1200</span></div><span class="bar-label">北京</span></div>
+                                <div class="bar-wrapper" data-region-bar="中国 四川"><div class="bar bar-alt" style="height: 0%;" data-base-height="50" data-base-val="1000"><span class="bar-value" style="opacity:0;">1000</span></div><span class="bar-label">四川</span></div>
+                                <div class="bar-wrapper" data-region-bar="中国 江苏"><div class="bar bar-alt" style="height: 0%;" data-base-height="100" data-base-val="2000"><span class="bar-value" style="opacity:0;">2000</span></div><span class="bar-label">江苏</span></div>
+                                <div class="bar-wrapper" data-region-bar="泰国 曼谷"><div class="bar bar-alt" style="height: 0%;" data-base-height="50" data-base-val="1000"><span class="bar-value" style="opacity:0;">1000</span></div><span class="bar-label">曼谷</span></div>
+                                <div class="bar-wrapper" data-region-bar="越南 胡志明市"><div class="bar bar-alt" style="height: 0%;" data-base-height="100" data-base-val="2800"><span class="bar-value" style="opacity:0;">2800</span></div><span class="bar-label">胡志明</span></div>
+                                <div class="bar-wrapper" data-region-bar="越南 河内"><div class="bar bar-alt" style="height: 0%;" data-base-height="55" data-base-val="1100"><span class="bar-value" style="opacity:0;">1100</span></div><span class="bar-label">河内</span></div>
+                                <div class="bar-wrapper" data-region-bar="印尼 雅加达"><div class="bar bar-alt" style="height: 0%;" data-base-height="95" data-base-val="1900"><span class="bar-value" style="opacity:0;">1900</span></div><span class="bar-label">雅加达</span></div>
+                            </div>
+                            <div class="map-container">
+                                <div class="echarts-view"></div>
+                            </div>
                         </div>
                     </div>
                     <div class="card col-6">
-                        <div class="card-header">
-                            <div class="card-title">渲染时长分布</div>
-                            <select class="filter-select metric-select" style="padding: 2px 6px; font-size: 11px;"><option>平均值</option><option>P50 中位数</option><option>P90 分位</option><option>P95 分位</option><option>P99 极值</option></select>
+                        <div class="card-header" style="display:flex; align-items:center;">
+                            <div class="card-title" style="margin-right: 10px;">渲染时长分布</div>
+                            <select class="filter-select metric-select" style="padding: 2px 6px; font-size: 11px;" onchange="applyMetricSelect(this)">
+                                <option value="avg">平均值</option>
+                                <option value="p50">P50 中位数</option>
+                                <option value="p90">P90 分位</option>
+                                <option value="p95">P95 分位</option>
+                                <option value="p99">P99 极值</option>
+                            </select>
+                            <div class="view-toggle">
+                                <div class="toggle-btn active" onclick="toggleChartView(this, 'bar')">柱状图</div>
+                                <div class="toggle-btn" onclick="toggleChartView(this, 'map')">地图模式</div>
+                            </div>
                         </div>
-                        <div class="chart-container">
-                            <div class="bar-wrapper" data-region-bar="中国 上海"><div class="bar bar-alt" style="height: 0%;" data-base-height="77" data-base-val="4666"><span class="bar-value" style="opacity:0;">4666</span></div><span class="bar-label">上海</span></div>
-                            <div class="bar-wrapper" data-region-bar="中国 北京"><div class="bar bar-alt" style="height: 0%;" data-base-height="50" data-base-val="3000"><span class="bar-value" style="opacity:0;">3000</span></div><span class="bar-label">北京</span></div>
-                            <div class="bar-wrapper" data-region-bar="中国 四川"><div class="bar bar-alt" style="height: 0%;" data-base-height="41" data-base-val="2500"><span class="bar-value" style="opacity:0;">2500</span></div><span class="bar-label">四川</span></div>
-                            <div class="bar-wrapper" data-region-bar="中国 江苏"><div class="bar bar-alt" style="height: 0%;" data-base-height="66" data-base-val="4000"><span class="bar-value" style="opacity:0;">4000</span></div><span class="bar-label">江苏</span></div>
-                            <div class="bar-wrapper" data-region-bar="泰国 曼谷"><div class="bar bar-alt" style="height: 0%;" data-base-height="100" data-base-val="6000"><span class="bar-value" style="opacity:0;">6000</span></div><span class="bar-label">曼谷</span></div>
-                            <div class="bar-wrapper" data-region-bar="越南 胡志明市"><div class="bar bar-alt" style="height: 0%;" data-base-height="80" data-base-val="4900"><span class="bar-value" style="opacity:0;">4900</span></div><span class="bar-label">胡志明</span></div>
-                            <div class="bar-wrapper" data-region-bar="越南 河内"><div class="bar bar-alt" style="height: 0%;" data-base-height="46" data-base-val="2800"><span class="bar-value" style="opacity:0;">2800</span></div><span class="bar-label">河内</span></div>
-                            <div class="bar-wrapper" data-region-bar="印尼 雅加达"><div class="bar bar-alt" style="height: 0%;" data-base-height="80" data-base-val="4800"><span class="bar-value" style="opacity:0;">4800</span></div><span class="bar-label">雅加达</span></div>
+                        <div class="chart-box">
+                            <div class="chart-container">
+                                <div class="bar-wrapper" data-region-bar="中国 上海"><div class="bar bar-alt" style="height: 0%;" data-base-height="77" data-base-val="4666"><span class="bar-value" style="opacity:0;">4666</span></div><span class="bar-label">上海</span></div>
+                                <div class="bar-wrapper" data-region-bar="中国 北京"><div class="bar bar-alt" style="height: 0%;" data-base-height="50" data-base-val="3000"><span class="bar-value" style="opacity:0;">3000</span></div><span class="bar-label">北京</span></div>
+                                <div class="bar-wrapper" data-region-bar="中国 四川"><div class="bar bar-alt" style="height: 0%;" data-base-height="41" data-base-val="2500"><span class="bar-value" style="opacity:0;">2500</span></div><span class="bar-label">四川</span></div>
+                                <div class="bar-wrapper" data-region-bar="中国 江苏"><div class="bar bar-alt" style="height: 0%;" data-base-height="66" data-base-val="4000"><span class="bar-value" style="opacity:0;">4000</span></div><span class="bar-label">江苏</span></div>
+                                <div class="bar-wrapper" data-region-bar="泰国 曼谷"><div class="bar bar-alt" style="height: 0%;" data-base-height="100" data-base-val="6000"><span class="bar-value" style="opacity:0;">6000</span></div><span class="bar-label">曼谷</span></div>
+                                <div class="bar-wrapper" data-region-bar="越南 胡志明市"><div class="bar bar-alt" style="height: 0%;" data-base-height="80" data-base-val="4900"><span class="bar-value" style="opacity:0;">4900</span></div><span class="bar-label">胡志明</span></div>
+                                <div class="bar-wrapper" data-region-bar="越南 河内"><div class="bar bar-alt" style="height: 0%;" data-base-height="46" data-base-val="2800"><span class="bar-value" style="opacity:0;">2800</span></div><span class="bar-label">河内</span></div>
+                                <div class="bar-wrapper" data-region-bar="印尼 雅加达"><div class="bar bar-alt" style="height: 0%;" data-base-height="80" data-base-val="4800"><span class="bar-value" style="opacity:0;">4800</span></div><span class="bar-label">雅加达</span></div>
+                            </div>
+                            <div class="map-container">
+                                <div class="echarts-view"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="dashboard-grid">
                     <div class="card col-6">
-                        <div class="card-header">
-                            <div class="card-title">总加载时长分布</div>
-                            <select class="filter-select metric-select" style="padding: 2px 6px; font-size: 11px;"><option>平均值</option><option>P50 中位数</option><option>P90 分位</option><option>P95 分位</option><option>P99 极值</option></select>
+                        <div class="card-header" style="display:flex; align-items:center;">
+                            <div class="card-title" style="margin-right: 10px;">总加载时长分布</div>
+                            <select class="filter-select metric-select" style="padding: 2px 6px; font-size: 11px;" onchange="applyMetricSelect(this)">
+                                <option value="avg">平均值</option>
+                                <option value="p50">P50 中位数</option>
+                                <option value="p90">P90 分位</option>
+                                <option value="p95">P95 分位</option>
+                                <option value="p99">P99 极值</option>
+                            </select>
+                            <div class="view-toggle">
+                                <div class="toggle-btn active" onclick="toggleChartView(this, 'bar')">柱状图</div>
+                                <div class="toggle-btn" onclick="toggleChartView(this, 'map')">地图模式</div>
+                            </div>
                         </div>
-                        <div class="chart-container">
-                            <div class="bar-wrapper" data-region-bar="中国 上海"><div class="bar bar-alt" style="height: 0%;" data-base-height="95" data-base-val="6665"><span class="bar-value" style="opacity:0;">6665</span></div><span class="bar-label">上海</span></div>
-                            <div class="bar-wrapper" data-region-bar="中国 北京"><div class="bar bar-alt" style="height: 0%;" data-base-height="60" data-base-val="4200"><span class="bar-value" style="opacity:0;">4200</span></div><span class="bar-label">北京</span></div>
-                            <div class="bar-wrapper" data-region-bar="中国 四川"><div class="bar bar-alt" style="height: 0%;" data-base-height="50" data-base-val="3500"><span class="bar-value" style="opacity:0;">3500</span></div><span class="bar-label">四川</span></div>
-                            <div class="bar-wrapper" data-region-bar="中国 江苏"><div class="bar bar-alt" style="height: 0%;" data-base-height="85" data-base-val="6000"><span class="bar-value" style="opacity:0;">6000</span></div><span class="bar-label">江苏</span></div>
-                            <div class="bar-wrapper" data-region-bar="泰国 曼谷"><div class="bar bar-alt" style="height: 0%;" data-base-height="100" data-base-val="7000"><span class="bar-value" style="opacity:0;">7000</span></div><span class="bar-label">曼谷</span></div>
-                            <div class="bar-wrapper" data-region-bar="越南 胡志明市"><div class="bar bar-alt" style="height: 0%;" data-base-height="82" data-base-val="5800"><span class="bar-value" style="opacity:0;">5800</span></div><span class="bar-label">胡志明</span></div>
-                            <div class="bar-wrapper" data-region-bar="越南 河内"><div class="bar bar-alt" style="height: 0%;" data-base-height="55" data-base-val="3900"><span class="bar-value" style="opacity:0;">3900</span></div><span class="bar-label">河内</span></div>
-                            <div class="bar-wrapper" data-region-bar="印尼 雅加达"><div class="bar bar-alt" style="height: 0%;" data-base-height="95" data-base-val="6700"><span class="bar-value" style="opacity:0;">6700</span></div><span class="bar-label">雅加达</span></div>
+                        <div class="chart-box">
+                            <div class="chart-container">
+                                <div class="bar-wrapper" data-region-bar="中国 上海"><div class="bar bar-alt" style="height: 0%;" data-base-height="95" data-base-val="6665"><span class="bar-value" style="opacity:0;">6665</span></div><span class="bar-label">上海</span></div>
+                                <div class="bar-wrapper" data-region-bar="中国 北京"><div class="bar bar-alt" style="height: 0%;" data-base-height="60" data-base-val="4200"><span class="bar-value" style="opacity:0;">4200</span></div><span class="bar-label">北京</span></div>
+                                <div class="bar-wrapper" data-region-bar="中国 四川"><div class="bar bar-alt" style="height: 0%;" data-base-height="50" data-base-val="3500"><span class="bar-value" style="opacity:0;">3500</span></div><span class="bar-label">四川</span></div>
+                                <div class="bar-wrapper" data-region-bar="中国 江苏"><div class="bar bar-alt" style="height: 0%;" data-base-height="85" data-base-val="6000"><span class="bar-value" style="opacity:0;">6000</span></div><span class="bar-label">江苏</span></div>
+                                <div class="bar-wrapper" data-region-bar="泰国 曼谷"><div class="bar bar-alt" style="height: 0%;" data-base-height="100" data-base-val="7000"><span class="bar-value" style="opacity:0;">7000</span></div><span class="bar-label">曼谷</span></div>
+                                <div class="bar-wrapper" data-region-bar="越南 胡志明市"><div class="bar bar-alt" style="height: 0%;" data-base-height="82" data-base-val="5800"><span class="bar-value" style="opacity:0;">5800</span></div><span class="bar-label">胡志明</span></div>
+                                <div class="bar-wrapper" data-region-bar="越南 河内"><div class="bar bar-alt" style="height: 0%;" data-base-height="55" data-base-val="3900"><span class="bar-value" style="opacity:0;">3900</span></div><span class="bar-label">河内</span></div>
+                                <div class="bar-wrapper" data-region-bar="印尼 雅加达"><div class="bar bar-alt" style="height: 0%;" data-base-height="95" data-base-val="6700"><span class="bar-value" style="opacity:0;">6700</span></div><span class="bar-label">雅加达</span></div>
+                            </div>
+                            <div class="map-container">
+                                <div class="echarts-view"></div>
+                            </div>
                         </div>
                     </div>
                     <div class="card col-6">
                         <div class="card-header">
                             <div class="card-title">停留时长情况</div>
-                            <select class="filter-select metric-select" style="padding: 2px 6px; font-size: 11px;"><option>平均值</option><option>P50 中位数</option><option>P90 分位</option><option>P95 分位</option><option>P99 极值</option></select>
+                            <select class="filter-select metric-select" style="padding: 2px 6px; font-size: 11px;" onchange="applyMetricSelect(this)">
+                                <option value="avg">平均值</option>
+                                <option value="p50">P50 中位数</option>
+                                <option value="p90">P90 分位</option>
+                                <option value="p95">P95 分位</option>
+                                <option value="p99">P99 极值</option>
+                            </select>
                         </div>
                         <div class="chart-container">
                             <div class="bar-wrapper" data-region-bar="中国 上海"><div class="bar bar-alt" style="height: 0%;" data-base-height="83" data-base-val="448"><span class="bar-value" style="opacity:0;">448</span></div><span class="bar-label">上海</span></div>
@@ -810,7 +888,7 @@
             }
         });
 
-        // 导航大页面切换
+       // 导航大页面切换（新增：动态隐藏特定页面的“对外API”选项）
         function switchPage(pageId, element) {
             const pages = document.querySelectorAll('.page-content');
             pages.forEach(page => page.classList.remove('active'));
@@ -834,6 +912,28 @@
             };
             const titleEl = document.getElementById('current-page-title');
             if(titleEl) titleEl.innerText = titleMap[pageId] || '';
+
+            // 🆕 新增：智能控制“系统端”下拉框里的“对外API”选项显示/隐藏
+            const systemSelect = document.getElementById('filter-system');
+            if (systemSelect) {
+                // 找到“对外API”这个选项
+                const apiOption = Array.from(systemSelect.options).find(opt => opt.value === '对外API');
+                if (apiOption) {
+                    // 如果当前进入的是“异常比例”或“时长分布”页面
+                    if (pageId === 'exception-rate' || pageId === 'duration-dist') {
+                        apiOption.style.display = 'none'; // 隐藏该选项
+                        
+                        // 兜底保护：如果用户在总览看板选了“对外API”，然后强行点进了这两个页面
+                        // 自动把下拉框重置为“PC”并刷新数据
+                        if (systemSelect.value === '对外API') {
+                            systemSelect.value = 'PC';
+                            if (typeof applyAllFilters === 'function') applyAllFilters();
+                        }
+                    } else {
+                        apiOption.style.display = ''; // 其他页面恢复显示
+                    }
+                }
+            }
         }
         
         // 侧边栏子菜单折叠
@@ -895,17 +995,19 @@
             });
         }
 
-        // 🆕 全局综合过滤引擎（单选版）
+        // 🆕 全局综合过滤引擎（增强版：完美融合地区、异常开关、系统端硬核裁切）
         function applyAllFilters() {
-            // 获取异常开关的状态
+            // 1. 获取所有筛选器的当前选值
             const toggle = document.getElementById('filter-abnormal-toggle');
             const isAbnormalChecked = toggle ? toggle.checked : false;
             
-            // 获取地区单选框选中的值
             const regionSelect = document.getElementById('filter-region');
             const selectedRegion = regionSelect ? regionSelect.value : '请选择';
 
-            // 1. 扫描总览大表，提取真正的异常名单
+            const systemSelect = document.getElementById('filter-system');
+            const selectedSystem = systemSelect ? systemSelect.value : 'PC';
+
+            // 2. 提取异常名单（保持你原有的逻辑）
             const abnormalRegions = new Set();
             document.querySelectorAll('#page-overview .data-table tbody tr').forEach(row => {
                 const region = row.getAttribute('data-region');
@@ -915,25 +1017,20 @@
                 }
             });
 
-            // 💡 过滤判断核心助手
+            // 地区与异常的过滤助手
             function passesFilter(regionAttr) {
                 if (!regionAttr) return false;
                 const regionName = regionAttr.trim();
-
-                // 条件A：地区单选过滤（如果选了特定地区，且名字不匹配，则隐藏）
                 if (selectedRegion !== '请选择' && !regionName.includes(selectedRegion) && !selectedRegion.includes(regionName)) {
                     return false;
                 }
-
-                // 条件B：异常开关（如果开了异常开关，但当前区域健康，隐藏）
                 if (isAbnormalChecked && !abnormalRegions.has(regionName)) {
                     return false;
                 }
-
-                return true; // 双重考验都通过，准许显示
+                return true; 
             }
 
-            // 2. 更新所有的表格行、普通柱状图、堆叠柱状图的显示隐藏状态
+            // 3. 执行基础的行级/柱状图隐藏
             document.querySelectorAll('.data-table tbody tr[data-region]').forEach(row => {
                 row.style.display = passesFilter(row.getAttribute('data-region')) ? '' : 'none';
             });
@@ -942,6 +1039,103 @@
             });
             document.querySelectorAll('.stacked-bar-row').forEach(row => {
                 row.style.display = passesFilter(row.getAttribute('data-region-row')) ? '' : 'none';
+            });
+
+            // ================= ⚙️ 核心联动：对外API 高级裁切逻辑 =================
+            
+            // A. 智能控制左侧导航菜单（无此维度的页面直接隐藏，防错看）
+            const subItems = document.querySelectorAll('.submenu-item');
+            subItems.forEach(item => {
+                if (item.innerText.includes('异常比例') || item.innerText.includes('时长分布')) {
+                    item.style.display = (selectedSystem === '对外API') ? 'none' : '';
+                }
+            });
+            // 如果用户正在看被隐藏的页面，自动将其切回“总览看板”
+            const activePage = document.querySelector('.page-content.active');
+            if (selectedSystem === '对外API' && activePage && (activePage.id === 'page-exception-rate' || activePage.id === 'page-duration-dist')) {
+                const overviewMenu = Array.from(document.querySelectorAll('.submenu-item')).find(item => item.innerText.includes('总览'));
+                if (overviewMenu) switchPage('overview', overviewMenu);
+            }
+
+            // B. 控制可视化卡片（整个面板隐藏）
+            document.querySelectorAll('.card').forEach(card => {
+                const titleEl = card.querySelector('.card-title');
+                if (titleEl) {
+                    const titleText = titleEl.innerText;
+                    if (titleText.includes('渲染时长') || titleText.includes('总加载') || titleText.includes('停留时长')) {
+                        card.style.display = (selectedSystem === '对外API') ? 'none' : '';
+                    }
+                }
+            });
+
+            // C. 精准隐藏分钟级折线图中的线段和图例
+            const pathTotal = document.getElementById('path-total');
+            const pathRender = document.getElementById('path-render');
+            if (pathTotal) pathTotal.style.display = (selectedSystem === '对外API') ? 'none' : '';
+            if (pathRender) pathRender.style.display = (selectedSystem === '对外API') ? 'none' : '';
+            document.querySelectorAll('.chart-legend .legend-item').forEach(item => {
+                if (item.innerText.includes('总加载') || item.innerText.includes('渲染')) {
+                    item.style.display = (selectedSystem === '对外API') ? 'none' : '';
+                }
+            });
+
+            // D. 动态切除「总览大表」中的无关列
+            const overviewTable = document.querySelector('#page-overview .data-table');
+            if (overviewTable) {
+                overviewTable.querySelectorAll('tr').forEach(row => {
+                    if (row.parentElement.tagName === 'THEAD') {
+                        const ths = row.querySelectorAll('th');
+                        if (row.parentElement.children[0] === row) { // 第一行主表头
+                            if (ths.length >= 6) {
+                                ths[3].style.display = (selectedSystem === '对外API') ? 'none' : ''; // 渲染
+                                ths[4].style.display = (selectedSystem === '对外API') ? 'none' : ''; // 总加载
+                                ths[5].style.display = (selectedSystem === '对外API') ? 'none' : ''; // 停留
+                            }
+                        } else { // 第二行多级表头 (平均/P50等细分)
+                            ths.forEach((th, thIdx) => {
+                                if (thIdx >= 5) th.style.display = (selectedSystem === '对外API') ? 'none' : '';
+                            });
+                        }
+                    } else { // 数据行
+                        row.querySelectorAll('td').forEach((td, tdIdx) => {
+                            if (tdIdx >= 7) td.style.display = (selectedSystem === '对外API') ? 'none' : '';
+                        } );
+                    }
+                });
+            }
+
+            // E. 动态切除「区域-分钟级性能分析表」中的无关列
+            const minuteTable = document.querySelector('#page-minute-level .data-table');
+            if (minuteTable) {
+                minuteTable.querySelectorAll('tr').forEach(row => {
+                    if (row.parentElement.tagName === 'THEAD') {
+                        const ths = row.querySelectorAll('th');
+                        if (row.parentElement.children[0] === row) { // 第一行主表头
+                            if (ths.length >= 5) {
+                                ths[3].style.display = (selectedSystem === '对外API') ? 'none' : ''; // 渲染
+                                ths[4].style.display = (selectedSystem === '对外API') ? 'none' : ''; // 总加载
+                            }
+                        } else { // 第二行多级表头
+                            ths.forEach((th, thIdx) => {
+                                if (thIdx >= 5) th.style.display = (selectedSystem === '对外API') ? 'none' : '';
+                            });
+                        }
+                    } else { // 数据行
+                        row.querySelectorAll('td').forEach((td, tdIdx) => {
+                            if (tdIdx >= 7) td.style.display = (selectedSystem === '对外API') ? 'none' : '';
+                        });
+                    }
+                });
+            }
+            
+            // 如果处于地图视图模式，触发重绘
+            document.querySelectorAll('.card').forEach(card => {
+                const cardTitle = card.querySelector('.card-title')?.innerText.trim();
+                const mapChart = card.querySelector('.map-container');
+                if (cardTitle && typeof echartsMaps !== 'undefined' && echartsMaps[cardTitle] && mapChart && mapChart.classList.contains('active')) {
+                    const barChart = card.querySelector('.chart-container');
+                    syncEChartsData(cardTitle, barChart);
+                }
             });
         }
 
@@ -1025,6 +1219,229 @@
             });
         });
 
+    // 🆕 新增：真实经纬度映射字典 (经度, 纬度) 及所属国家
+        const GEO_DICT = {
+            '中国 上海': { coords: [121.47, 31.23], country: 'China' },
+            '中国 北京': { coords: [116.40, 39.90], country: 'China' },
+            '中国 四川': { coords: [104.06, 30.67], country: 'China' },
+            '中国 江苏': { coords: [118.79, 32.06], country: 'China' },
+            '泰国 曼谷': { coords: [100.50, 13.75], country: 'Thailand' },
+            '越南 胡志明市': { coords: [106.62, 10.82], country: 'Vietnam' },
+            '越南 河内': { coords: [105.85, 21.02], country: 'Vietnam' },
+            '印尼 雅加达': { coords: [106.84, -6.20], country: 'Indonesia' }
+        };
+
+        const echartsMaps = {}; // 存储 ECharts 实例
+
+        // 切换图表/地图视图
+        function toggleChartView(btn, viewType) {
+            const toggleGroup = btn.parentElement;
+            toggleGroup.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const card = btn.closest('.card');
+            const barChart = card.querySelector('.chart-container');
+            const mapChart = card.querySelector('.map-container');
+            const cardTitle = card.querySelector('.card-title').innerText.trim();
+
+            if (viewType === 'map') {
+                barChart.classList.add('hidden');
+                mapChart.classList.add('active');
+
+                // 延迟 50ms 确保 DOM 显示完毕以获取宽高，然后初始化真实地图
+                setTimeout(() => {
+                    const echartDom = mapChart.querySelector('.echarts-view');
+                    if (!echartsMaps[cardTitle]) {
+                        echartsMaps[cardTitle] = echarts.init(echartDom);
+                    }
+                    syncEChartsData(cardTitle, barChart);
+                }, 50);
+            } else {
+                barChart.classList.remove('hidden');
+                mapChart.classList.remove('active');
+            }
+        }
+
+        // 解析柱状图数据并绘制到真实世界地图上
+        function syncEChartsData(cardTitle, barChart) {
+            const chartInstance = echartsMaps[cardTitle];
+            if (!chartInstance) return;
+
+            const wrappers = barChart.querySelectorAll('.bar-wrapper');
+            let scatterData = [];
+            let countryStatus = {}; // 用于记录国家全境的最高告警级别
+
+            wrappers.forEach(w => {
+                const region = w.getAttribute('data-region-bar');
+                const bar = w.querySelector('.bar');
+                const val = parseFloat(w.querySelector('.bar-value').innerText || bar.getAttribute('data-base-val'));
+                
+                let status = 'normal';
+                let color = '#3b82f6'; // 默认蓝色
+                let level = 0; // 0=正常, 1=警告, 2=严重
+
+                // 判断告警颜色
+                if (bar.classList.contains('status-danger')) {
+                    status = 'danger'; color = '#ef4444'; level = 2; // 红色
+                } else if (bar.classList.contains('status-warning')) {
+                    status = 'warning'; color = '#f97316'; level = 1; // 橙色
+                }
+
+                const geo = GEO_DICT[region];
+                if (geo) {
+                    // 1. 生成城市呼吸散点数据
+                    scatterData.push({
+                        name: region.split(' ')[1] || region, // 显示简写城市名
+                        value: [...geo.coords, val],
+                        itemStyle: { color: color }
+                    });
+
+                    // 2. 统计国家板块底色（取其境内最高告警级别）
+                    if (!countryStatus[geo.country] || countryStatus[geo.country].level < level) {
+                        countryStatus[geo.country] = { 
+                            level: level, 
+                            // 板块填充色比散点稍微柔和一些，防止视觉过于刺眼
+                            color: level === 2 ? '#fca5a5' : (level === 1 ? '#fdba74' : '#bfdbfe') 
+                        };
+                    }
+                }
+            });
+
+            // 转换板块数据格式给 ECharts
+            const mapRegionData = Object.keys(countryStatus).map(country => {
+                return { name: country, itemStyle: { areaColor: countryStatus[country].color } };
+            });
+
+            // ECharts 核心配置项
+            const option = {
+                tooltip: {
+                    trigger: 'item',
+                    formatter: function(params) {
+                        if (params.seriesType === 'effectScatter') {
+                            return `<div style="font-size:12px">${params.name}<br/>性能数值: <strong style="color:${params.color};font-size:14px">${params.value[2]}</strong> ms</div>`;
+                        }
+                        return params.name;
+                    }
+                },
+                geo: {
+                    map: 'world',
+                    roam: true, // 开启鼠标滚轮缩放和拖拽平移
+                    zoom: 1.8, // 初始放大倍数
+                    center: [110, 20], // 初始中心点移到东南亚/中国附近
+                    itemStyle: { areaColor: '#f1f5f9', borderColor: '#cbd5e1' },
+                    emphasis: { itemStyle: { areaColor: '#e2e8f0' } }
+                },
+                series: [
+                    {
+                        type: 'map',
+                        map: 'world',
+                        geoIndex: 0,
+                        data: mapRegionData // 国家区块颜色填充
+                    },
+                    {
+                        type: 'effectScatter', // 涟漪特效散点图（呼吸灯效果）
+                        coordinateSystem: 'geo',
+                        symbolSize: 10,
+                        showEffectOn: 'render',
+                        rippleEffect: { brushType: 'stroke', scale: 3.5 },
+                        label: { show: true, formatter: '{b}', position: 'right', fontSize: 10, color: '#334155', fontWeight: 'bold' },
+                        zlevel: 1,
+                        data: scatterData // 城市数据点
+                    }
+                ]
+            };
+
+            chartInstance.setOption(option);
+        }
+        
+        // 覆盖原本的联动函数：当右下角修改阈值时，强制让已展开的地图重绘变色
+        const originalUpdateChartAlerts = updateChartAlerts;
+        updateChartAlerts = function() {
+            originalUpdateChartAlerts(); 
+            // 扫描如果有地图处于展示状态，同步更新颜色
+            document.querySelectorAll('.card').forEach(card => {
+                const cardTitle = card.querySelector('.card-title')?.innerText.trim();
+                const mapChart = card.querySelector('.map-container');
+                if (cardTitle && echartsMaps[cardTitle] && mapChart && mapChart.classList.contains('active')) {
+                    const barChart = card.querySelector('.chart-container');
+                    syncEChartsData(cardTitle, barChart);
+                }
+            });
+        };
+    
+    // 🆕 新增：总览看板指标下拉框（平均值/P50/P90/P95/P99）核心动态联动引擎
+        function applyMetricSelect(selectEl) {
+            const card = selectEl.closest('.card');
+            const cardTitle = card.querySelector('.card-title').innerText.trim();
+            const metricType = selectEl.value; // 获取选中的类型: 'avg', 'p50', 'p90', 'p95', 'p99'
+            
+            // 确定当前卡片在“资料总览”大表中的数据列起始偏移量
+            let startIdx = 2; // 默认 API 响应时间起始列
+            if (cardTitle.includes('渲染时长')) {
+                startIdx = 7; // 渲染时长起始列
+            } else if (cardTitle.includes('总加载')) {
+                startIdx = 12; // 总加载时长起始列
+            }
+            
+            // 根据分位数类型映射到确定的表格列索引
+            const offsetMap = { 'avg': 0, 'p50': 1, 'p90': 2, 'p95': 3, 'p99': 4 };
+            const targetTdIdx = startIdx + offsetMap[metricType];
+
+            // 1. 扫描“资料总览”表格，动态榨取各区域对应分位数的真实数值，并回写给柱状图 DOM
+            const barWrappers = card.querySelectorAll('.chart-container .bar-wrapper');
+            barWrappers.forEach(wrapper => {
+                const region = wrapper.getAttribute('data-region-bar');
+                // 在大表中精确定位到该地区的行
+                const tableRow = document.querySelector(`#page-overview .data-table tbody tr[data-region="${region}"]`);
+                if (tableRow) {
+                    const cells = tableRow.querySelectorAll('td');
+                    if (cells[targetTdIdx]) {
+                        const targetCell = cells[targetTdIdx];
+                        const realVal = parseFloat(targetCell.innerText);
+                        
+                        // 动态更新柱状图上方悬浮显示的真实数字
+                        const barValueEl = wrapper.querySelector('.bar-value');
+                        if (barValueEl) barValueEl.innerText = targetCell.innerText;
+
+                        // 动态重算柱子高度，保障分位数变大时柱子高度丝滑伸缩
+                        const bar = wrapper.querySelector('.bar');
+                        if (bar) {
+                            bar.setAttribute('data-base-val', realVal);
+                            
+                            // 动态获取当前全场最大值作为比例分母，防止柱子撑破图表
+                            let maxVal = 1;
+                            document.querySelectorAll(`#page-overview .data-table tbody tr`).forEach(r => {
+                                const c = r.querySelectorAll('td');
+                                if (c[targetTdIdx]) {
+                                    const v = parseFloat(c[targetTdIdx].innerText);
+                                    if (v > maxVal) maxVal = v;
+                                }
+                            });
+                            const heightPercent = (realVal / maxVal) * 100;
+                            bar.setAttribute('data-base-height', heightPercent);
+                            
+                            // 如果用户当前停留在【柱状图视图】，立刻让柱子播放伸展动画
+                            if (!card.querySelector('.chart-container').classList.contains('hidden')) {
+                                bar.style.height = heightPercent + '%';
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 2. 触发全局健康度阈值重算逻辑（让 P90/P95/P99 飙高的数据根据你的右下角阈值自动爆红或变橙）
+            if (typeof reEvaluateAllTables === 'function') {
+                reEvaluateAllTables();
+            }
+
+            // 3. 如果用户当前停留在【地图模式视图】，强制驱动 ECharts 世界地图重新渲染真实轮廓与颜色
+            const mapChart = card.querySelector('.map-container');
+            if (mapChart && mapChart.classList.contains('active') && typeof echartsMaps !== 'undefined' && echartsMaps[cardTitle]) {
+                const barChart = card.querySelector('.chart-container');
+                syncEChartsData(cardTitle, barChart);
+            }
+        }
+    
     </script>
 <div class="config-toggle-btn" onclick="toggleConfigPanel()">⚙️</div>
     <div class="threshold-config-panel" id="threshold-panel">
